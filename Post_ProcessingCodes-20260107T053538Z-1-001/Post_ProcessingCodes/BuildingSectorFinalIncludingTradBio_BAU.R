@@ -50,7 +50,8 @@ interpolated_data <- filtered_data %>%
 interpolated_data <- interpolated_data %>%
   rename(region = state, year = year, adjusted_value = value) %>%
   mutate(type = "resid", input = "traditional biomass") %>%
-  select(region, type, input, year, adjusted_value)
+  select(region, type, input, year, adjusted_value) %>%
+  crossing(scenario = c("BAU_Final", "NZ_Final"))
 
 # Step 6: Update the master sheet with interpolated data
 updated_master_sheet <- master_sheet %>%
@@ -61,6 +62,6 @@ updated_master_sheet <- master_sheet %>%
   arrange(region, type, input, year)
 
 # Step 7: Write the updated master sheet to an Excel file
-output_file <- "C:/Users/Anurag/Downloads/BuildingEnergy_BAU.xlsx"
+output_file <- "data/BuildingEnergy_Final_all.xlsx"
 write.xlsx(updated_master_sheet, output_file)
 
