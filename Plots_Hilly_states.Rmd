@@ -1,0 +1,539 @@
+---
+title: "Hilly States – Scenario Results"
+author: "Aman Malik"
+date: ''
+output:
+  html_document:
+    theme: cosmo
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+    number_sections: yes
+    code_folding: hide
+    df_print: paged
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+fontsize: 10pt
+---
+
+```{r setup, include=FALSE}
+# Global chunk options
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  cache = TRUE,
+  fig.crop=FALSE
+)
+
+# Libraries
+library(tidyverse)
+library(ggthemes)
+library(ggsci)
+library(readxl)
+library(ggrepel)
+library(ggpubr)
+library(openxlsx)
+
+# Custom palette
+my_custom_palette <- c(
+  "#575756", "#9d9d9c", "#D5d7dc",
+  "#C3E5F5", "#71c9eb", "#009cd8",
+  "#8db824", "#b4d48c", "#DDE9BA",
+  "#EA5813", "#F49A70", "#FACAB1"
+)
+
+# Global plotting theme
+theme_set(
+  theme_pubr(
+    base_size = 10,
+    base_family = "Source Sans Pro"
+  ) +
+    theme(
+      legend.position = "top",
+      panel.grid.minor = element_blank()
+    )
+)
+
+```
+
+```{r}
+hilly_states <- c("AR","HP","UK","ML","SK")
+hilly_states_names <- c("Arunachal Pradesh","Himachal Pradesh","Sikkim","Meghalaya","Uttarakhand")
+```
+
+# GVA_historic
+```{r}
+gva <- read_excel(path="data/State_GVA_Trends_1767791341931.xlsx") %>% filter(State %in% hilly_states_names) %>% 
+  rename(value=`Price (in Crores)`,sector=`Industry Item`) %>% 
+  filter(!is.na(sector))
+
+gva_tot <- gva %>% 
+  group_by(State,Year) %>% 
+  summarise(total=sum(value))
+
+services_items <- c(
+  "Trade, Repair, Hotels And Restaurants",
+  "Transport, Storage, Communication & Broadcasting Services",
+  "Financial Services",
+  "Real Estate, Ownership Of Dwelling & Professional Services",
+  "Public Administration",
+  "Other Services"
+)
+
+gva_services <- gva %>%
+  filter(sector %in% services_items) %>%
+  group_by(State, Year, `Price Type`) %>%
+  summarise(
+    value = sum(value, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    sector = "Services"
+  )
+
+gva_no_services <- gva %>%
+  filter(!(sector %in% services_items))
+
+gva_final <- bind_rows(
+  gva_no_services,
+  gva_services
+)
+
+gva_share <- gva_final %>%
+  group_by(State, Year, `Price Type`) %>%
+  mutate(
+    share = value / sum(value) * 100
+  ) %>%
+  ungroup() %>% 
+ filter(`Price Type` == "constant") %>% 
+filter(Year %in% c("2021-22","2022-23","2023-24"))
+
+#Making GVA share plot
+ggplot(gva_share,
+   aes(
+    x = Year,
+    y = share,
+    colour = sector,
+    group=sector
+    )
+) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  facet_grid(~State
+  ) +
+  scale_colour_manual(values = my_custom_palette[c(2,4,6,8,10,12)]) +
+  labs(
+    y = "Share of GVA (%)",
+    x = ""
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.title = element_blank(),
+    legend.position = "top"
+  )
+
+
+  
+```
+
+# Per capita_historic
+```{r}
+per_capita <- read_excel(path="data/Per_Capita_Income_1767790631974.xlsx") %>% filter(`Price Category`=="constant") %>% 
+  rename(value=4) %>% 
+  filter(as.numeric(substr(Year, 1, 4)) > 2012) %>% 
+  filter(State %in% hilly_states_names)
+
+per_capita_growth <- per_capita %>%
+  arrange(State, Year) %>%
+  group_by(State) %>%
+  mutate(
+    growth_rate = (value / lag(value) - 1) * 100
+  ) %>%
+  ungroup()
+
+
+per_capita_norm <- per_capita %>%
+  group_by(State) %>%
+  mutate(
+    value_2013 = value[Year == "2013-14"][1],
+    pc_income_index = (value / value_2013) * 100
+  ) %>%
+  ungroup()
+
+# Plot absolute
+
+ggplot(
+  per_capita,
+  aes(
+    x = Year,
+    y = value,
+    group = State,
+    colour = State
+  )
+) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  geom_hline(
+    yintercept = 106744,
+    linetype = "dashed",
+    colour = "black",
+    linewidth = 0.8
+  ) +
+  scale_y_continuous(
+    labels = scales::comma
+  ) +
+  labs(
+    y = "Per-capita income (Rupees)",
+    x = "",
+    caption = ""
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+
+
+#Plot normalised per capita income
+ggplot(
+  per_capita_norm,
+  aes(
+    x = Year,
+    y = pc_income_index,
+    group = State,
+    colour = State
+  )
+) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  # geom_hline(
+  #   yintercept = 106744,
+  #   linetype = "dashed",
+  #   colour = "black",
+  #   linewidth = 0.8
+  # ) +
+  scale_y_continuous(
+    labels = scales::comma
+  ) +
+  labs(
+    y = "Per-capita income (normalised to 2013-14)",
+    x = "",
+    caption = ""
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+
+
+```
+
+<!-- # GDP_model -->
+```{r eval=FALSE, include=FALSE}
+gdp_model <- read_excel(path="data/gdp_model.xlsx") %>% 
+  select(region,4:18) %>% 
+  pivot_longer(2:16,names_to = "year",values_to = "value") %>% 
+  filter(year>2015) %>% 
+rename(state="region")
+```
+
+# GDP per capita model
+```{r}
+gdpPc_model <- read_excel(path="data/GDPPc_model.xlsx") %>% 
+  select(region,4:18) %>% 
+  pivot_longer(2:16,names_to = "year",values_to = "value") %>% 
+  filter(year>2015)%>% 
+rename(state="region")
+
+
+gdpPc_model_norm <- gdpPc_model %>%
+  group_by(state) %>%
+  mutate(
+    value_2020 = value[year == 2020][1],
+    value_index_2020 = (value / value_2020) * 100
+  ) %>%
+  ungroup()
+
+ggplot(
+  gdpPc_model_norm,
+  aes(
+    x = year,
+    y = value_index_2020,
+    group = state,
+    colour = state
+  )
+) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    y = "Index (2020 = 100)",
+    x = ""
+  ) +
+  theme_minimal() +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "bottom"
+  )
+
+```
+
+# Emissions
+```{r}
+emissions_bau <- read_excel("data/allsector_emissions_BAU.xlsx") %>% mutate(scenario="BAU") 
+emissions_nz <- read_excel("data/AllSectorEmissions_NZ.xlsx") %>% mutate(scenario="NZ") 
+
+emissions <- bind_rows(emissions_bau, emissions_nz) %>%
+  mutate(units = "MTCO2") %>%
+  rename(value = adjusted_value,state=region) %>%
+  filter(state %in% hilly_states)
+
+emissions_total <- emissions %>% 
+  group_by(year,scenario,state) %>% 
+  summarise(value=sum(value))
+
+#Normalise emissions
+emissions_norm <- bind_rows(emissions_bau, emissions_nz) %>%
+  mutate(units = "MTCO2") %>%
+  rename(value = adjusted_value) %>%
+  filter(region %in% hilly_states) %>%
+  group_by(region, scenario,type) %>%
+  mutate(
+    value_2020 = value[year == 2020][1],
+    value_norm = (value / value_2020) * 100
+  ) %>%
+  ungroup()
+
+#Emissions share
+emi_share <- emissions %>% 
+  group_by(state,year,scenario) %>% 
+  mutate(share=(value/sum(value))*100)
+
+#Plot absolute emissions
+ggplot() +
+  geom_area(
+    data = emissions %>% filter(year > 2015),
+    aes(x = year, y = value, fill = type)
+  ) +
+  facet_grid(
+    rows = vars(state),
+    cols = vars(scenario),
+    scales = "free_y"
+  ) +
+  scale_fill_manual(values = my_custom_palette[c(2, 4, 6, 8, 11)]) +
+  labs(
+    y = "Emissions MtCO2",
+    x = ""
+  ) +
+  theme(
+    axis.text.x = element_text(size = 10),
+    legend.title = element_blank(),
+    legend.position = "top",
+    legend.justification = c(0, 1)
+  )
+
+#Plot emission share
+
+ggplot()+
+    geom_col(data=emi_share %>% filter(year>2015),
+           aes(x=year,y=share,fill=type))+
+  facet_grid(
+    rows = vars(state),
+    cols = vars(scenario),
+#    scales = "free_y"
+  ) +
+   scale_fill_manual(values = my_custom_palette[c(2,4,6,8)]) +
+  labs(
+    y = "",
+    x = ""
+  ) 
+```
+
+# Electricity Generation
+```{r}
+elec_bau <- read_excel(path="data/adjusted_generation_forecast_BAU.xlsx") %>% mutate(scenario="BAU")
+elec_nz <- read_excel(path="data/adjusted_generation_forecast_NZ.xlsx") %>% mutate(scenario="NZ")
+
+elec <- bind_rows(elec_bau, elec_nz) %>%
+  mutate(units = "EJ") %>%
+  rename(value = adjusted_value) %>%
+  filter(state %in% hilly_states)
+
+elec_total <- elec %>% 
+  group_by(state,year,scenario) %>% 
+  summarise(value=sum(value))
+
+elec_share <- elec %>% 
+  group_by(state,year,scenario) %>% 
+  mutate(share=(value/sum(value)*100))
+
+#Plot elec absolute
+ggplot() +
+  geom_area(
+    data = elec %>% filter(year > 2015),
+    aes(x = year, y = value, fill = subsector)
+  ) +
+  facet_grid(
+    rows = vars(state),
+    cols = vars(scenario),
+    scales = "free_y"
+  ) +
+  scale_fill_manual(values = my_custom_palette) +
+  labs(
+    y = "",
+    x = ""
+  ) +
+  theme(
+    axis.text.x = element_text(size = 10),
+    legend.title = element_blank(),
+    legend.position = "top",
+    legend.justification = c(0, 1)
+  )
+
+#Plot elec share
+ggplot()+
+  geom_col(data=elec_share %>% filter(year>2015),
+           aes(x=year,y=share,fill=subsector))+
+  facet_grid(
+    rows = vars(state),
+    cols = vars(scenario),
+#    scales = "free_y"
+  ) +
+   scale_fill_manual(values = my_custom_palette) +
+  labs(
+    y = "",
+    x = ""
+  ) 
+
+
+
+```
+
+# Final Energy by fuel
+```{r}
+fe_bau <- read.csv("data/FinalEnergyConsumption_BAU.csv") %>% mutate(scenario="BAU")
+
+fe_nz <- read.csv("data/FinalEnergyConsumption_NZ.csv") %>% 
+  mutate(scenario="NZ")
+
+fe <- bind_rows(fe_bau,fe_nz) %>% 
+  mutate(units = "EJ") %>%
+  rename(value = total_adjusted_value,state=region,subsector=input_group) %>%
+  filter(state %in% hilly_states,subsector!="total") 
+
+fe_total <- fe %>% 
+  group_by(state,year,scenario) %>% 
+  summarise(value=sum(value))
+
+fe_share <- fe %>% 
+  group_by(state,year,scenario) %>% 
+  mutate(share=(value/sum(value))*100)
+
+
+#Plot absolute
+ggplot() +
+  geom_area(
+    data = fe %>% filter(year > 2015),
+    aes(x = year, y = value, fill = subsector)
+  ) +
+  facet_grid(
+    rows = vars(state),
+    cols = vars(scenario),
+    scales = "free_y"
+  ) +
+  scale_fill_manual(values = my_custom_palette) +
+  labs(
+    y = "",
+    x = ""
+  ) +
+  theme(
+    axis.text.x = element_text(size = 10),
+    legend.title = element_blank(),
+    legend.position = "top",
+    legend.justification = c(0, 1)
+  )
+
+#Plot share
+ggplot()+
+  geom_col(data=fe_share %>% filter(year>2015),
+           aes(x=year,y=share,fill=subsector))+
+  facet_grid(
+    rows = vars(state),
+    cols = vars(scenario),
+#    scales = "free_y"
+  ) +
+   scale_fill_manual(values = my_custom_palette) +
+  labs(
+    y = "",
+    x = ""
+  ) 
+
+  
+```
+
+# Electricity Demand
+```{r}
+elec_demand <- fe %>% filter(subsector=="electricity")
+
+
+```
+
+
+
+# Table with 2020 and 2070 values and the increase
+```{r}
+
+prep_var <- function(df, var_name, unit = NA) {
+  df %>%
+    mutate(year = as.numeric(year)) %>%   #  force same type
+    filter(
+      scenario == "BAU",
+      year %in% c(2020, 2070)
+    ) %>%
+    select(state, year, value) %>%
+    mutate(
+      variable = var_name,
+      unit = unit
+    )
+}
+
+
+
+emissions_tbl <- prep_var(emissions_total, "Emissions")
+fe_tbl <- prep_var(fe_total, "Final energy")
+elec_tbl <- prep_var(elec_total, "Electricity generation")
+elec_dmd_tbl <- prep_var(elec_demand,"Electricity Demand")
+gdp_pc_tbl <- prep_var(gdpPc_model %>% mutate(scenario="BAU"), "GDP per capita")
+
+combined_tbl <- bind_rows(
+  gdp_pc_tbl,
+  emissions_tbl,
+  fe_tbl,
+  elec_tbl,
+  elec_dmd_tbl
+)
+
+summary_tbl <- combined_tbl %>%
+  pivot_wider(
+    names_from = year,
+    values_from = value,
+    names_prefix = "value_"
+  ) %>%
+  mutate(
+increase  = (value_2070 / value_2020)
+  )%>% select(-c(3,4))
+
+knitr::kable(
+  summary_tbl,
+  digits = 2,
+  caption = "Change in key indicators between 2020 and 2070 (BAU scenario)"
+)
+```
+
+
