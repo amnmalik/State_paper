@@ -477,12 +477,106 @@ ggplot()+
   
 ```
 
+# Final Energy by sector
+```{r}
+bld_bau <- read_excel("data/BuildingEnergy_BAU.xlsx")%>% mutate(scenario="BAU")
+bld_nz <- read_excel("data/Final_Energy_Building_NZ.xlsx")%>% mutate(scenario="NZ")
+bld <- bind_rows(bld_bau, bld_nz) %>%
+  mutate(units = "EJ") %>%
+  rename(value = adjusted_value,state=region) %>%
+  filter(state %in% hilly_states)
+
+ind_bau <- read_excel("data/adjusted_industry_BAU.xlsx") %>% mutate(scenario="BAU")
+ind_nz <- read_excel("data/adjusted_industryenergy_NZ.xlsx") %>% mutate(scenario="NZ")
+ind <- bind_rows(ind_bau, ind_nz) %>%
+  mutate(units = "EJ") %>%
+  rename(value = adjusted_value,state=region) %>%
+  filter(state %in% hilly_states)
+
+ind_share <- ind %>% 
+  group_by(state,year,scenario) %>% 
+  mutate(value=(value/sum(value))*100)
+
+trn_bau <- read_excel("data/adjusted_forecast_trn_BAU.xlsx")%>% mutate(scenario="BAU")
+trn_nz <- read_excel("data/adjustedenergy_trn_NZ.xlsx") %>% mutate(scenario="NZ")
+
+trn <- bind_rows(trn_bau, trn_nz) %>%
+  mutate(units = "EJ") %>%
+  rename(value = adjusted_value) %>%
+  filter(state %in% hilly_states)
+
+bld_sum <- bld %>% 
+  group_by(state,year,scenario,units) %>% 
+  summarise(value=sum(value)) %>% mutate(sector="Buildings")
+
+ind_sum <- ind %>% 
+  group_by(state,year,scenario,units) %>% 
+  summarise(value=sum(value)) %>% mutate(sector="Industry")
+
+trn_sum <- trn %>% 
+    group_by(state,year,scenario,units) %>% 
+  summarise(value=sum(value)) %>% mutate(sector="Transport")
+
+all_sectors <- bind_rows(bld_sum,ind_sum,trn_sum)  
+all_sectors_share <- all_sectors %>% 
+  group_by(state,year,scenario,units) %>% 
+  mutate(share=(value/sum(value))*100)
+
+#Plot share
+ggplot()+
+  geom_col(data=all_sectors_share %>% filter(year>2015),
+           aes(x=year,y=share,fill=sector))+
+  facet_grid(
+    rows = vars(state),
+    cols = vars(scenario),
+#    scales = "free_y"
+  ) +
+   scale_fill_manual(values = my_custom_palette[c(2,4,6)]) +
+  labs(
+    y = "",
+    x = ""
+  ) 
+```
+
+
 # Electricity Demand
 ```{r}
 elec_demand <- fe %>% filter(subsector=="electricity")
 
 
 ```
+
+# Transport 
+```{r}
+trn_bau <- read_excel("data/adjusted_forecast_trn_BAU.xlsx")%>% mutate(scenario="BAU")
+trn_nz <- read_excel("data/adjustedenergy_trn_NZ.xlsx") %>% mutate(scenario="NZ")
+
+trn <- bind_rows(trn_bau, trn_nz) %>%
+  mutate(units = "EJ") %>%
+  rename(value = adjusted_value) %>%
+  filter(state %in% hilly_states)
+
+trn_share <- trn %>% 
+  group_by(state,year,scenario) %>% 
+  mutate(share=(value/sum(value)*100))
+
+#Plot share
+ggplot()+
+  geom_col(data=trn_share %>% filter(year>2015),
+           aes(x=year,y=share,fill=input))+
+  facet_grid(
+    rows = vars(state),
+    cols = vars(scenario),
+#    scales = "free_y"
+  ) +
+   scale_fill_manual(values = my_custom_palette) +
+  labs(
+    y = "",
+    x = ""
+  ) 
+
+```
+
 
 
 
