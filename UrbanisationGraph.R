@@ -3,7 +3,7 @@ library(readxl)
 library(tidyverse)
 
 # Step 1: Read the data
-gdp_data <- read_excel("C:/Users/Anurag/Downloads/Urbanisation.xlsx")  # <-- change if needed
+gdp_data <- read_excel("data/Urbanisation.xlsx")  # <-- change if needed
 
 # Step 2: Rename first column for consistency
 names(gdp_data)[1] <- "state_code"

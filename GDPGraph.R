@@ -3,7 +3,7 @@ library(readxl)
 library(tidyverse)
 
 # Read the Excel file (use your correct file path if different)
-gdp_data <- read_excel("C:/Users/Anurag/Downloads/GDP.xlsx")
+gdp_data <- read_excel("data/GDP.xlsx")
 
 # Rename first column to state_code for clarity
 names(gdp_data)[1] <- "state_code"
@@ -58,21 +58,6 @@ ggplot() +
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "right"
   )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # Plot
 ggplot() +

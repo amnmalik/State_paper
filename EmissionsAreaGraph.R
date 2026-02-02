@@ -2,7 +2,7 @@ library(readxl)
 library(dplyr)
 library(ggplot2)
 
-data <- read_excel("C:/Users/Anurag/Downloads/AllSectorEmissions_NZ.xlsx")
+data <- read_excel("data/AllSectorEmissions_NZ.xlsx")
 
 selected_types <- c("Power", "Industry", "Building", "Transport")
 selected_states <- c("GJ")

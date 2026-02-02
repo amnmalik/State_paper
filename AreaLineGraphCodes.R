@@ -5,7 +5,7 @@ library(ggplot2)
 library(scales)
 
 # Load data
-data <- read_excel("C:/Users/Anurag/Downloads/adjusted_generation_forecast_BAU.xlsx")
+data <- read_excel("data/adjusted_generation_forecast_BAU.xlsx")
 
 # Filter years from 2020 to 2070 with a 5-year gap
 data_filtered <- data %>%
